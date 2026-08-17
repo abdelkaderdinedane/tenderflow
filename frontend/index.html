@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenderFlow MVP Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; }
+  header { background: #00467F; color: white; padding: 16px 32px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 22px; font-weight: 700; }
+  header span { font-size: 13px; opacity: 0.8; }
+  .container { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+  .tab { padding: 10px 20px; border-radius: 8px 8px 0 0; cursor: pointer; background: #e2e8f0; font-weight: 600; font-size: 14px; border: none; }
+  .tab.active { background: white; color: #00467F; }
+  .panel { display: none; background: white; border-radius: 0 12px 12px 12px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .panel.active { display: block; }
+  label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; color: #4a5568; }
+  input, textarea, select { width: 100%; padding: 10px 14px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+  textarea { min-height: 120px; resize: vertical; }
+  .btn { padding: 11px 24px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .btn-primary { background: #00467F; color: white; }
+  .btn-success { background: #276749; color: white; }
+  .btn-danger  { background: #c53030; color: white; }
+  .btn-gray    { background: #e2e8f0; color: #1a202c; }
+  .btn:hover { opacity: 0.88; }
+  .result-box { background: #f7fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 16px; font-size: 13px; white-space: pre-wrap; max-height: 320px; overflow-y: auto; }
+  .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+  .agent-card { border-radius: 10px; padding: 14px; border: 1.5px solid #e2e8f0; }
+  .agent-card .name { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-pending    { background: #EDF2F7; color: #718096; }
+  .badge-running    { background: #EBF8FF; color: #2B6CB0; }
+  .badge-completed  { background: #F0FFF4; color: #276749; }
+  .badge-failed     { background: #FFF5F5; color: #c53030; }
+  .badge-skipped    { background: #FFFFF0; color: #975A16; }
+  .run-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+  .run-row:last-child { border-bottom: none; }
+  .run-title { font-weight: 600; flex: 1; }
+  .info-row { display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap; }
+  .info-item { flex: 1; min-width: 160px; }
+  .info-item .label { font-size: 11px; color: #718096; text-transform: uppercase; font-weight: 700; }
+  .info-item .value { font-size: 15px; font-weight: 700; color: #1a202c; margin-top: 2px; }
+  #status-msg { margin-top: 12px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; }
+  .msg-success { background: #F0FFF4; color: #276749; }
+  .msg-error   { background: #FFF5F5; color: #c53030; }
+  .msg-info    { background: #EBF8FF; color: #2B6CB0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🎯 TenderFlow MVP</h1>
+    <span>AI-powered Tender Management Platform — Phase 3</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('submit')">📋 Submit Tender</button>
+    <button class="tab" onclick="showTab('status')">📊 Pipeline Status</button>
+    <button class="tab" onclick="showTab('result')">📄 Results</button>
+    <button class="tab" onclick="showTab('approval')">✅ Approval</button>
+    <button class="tab" onclick="showTab('history')">🕓 Run History</button>
+  </div>
+
+  <!-- SUBMIT -->
+  <div id="tab-submit" class="panel active">
+    <h2 style="margin-bottom:20px;color:#00467F">Submit New Tender</h2>
+    <label>Tender Title</label>
+    <input id="tender-title" type="text" placeholder="e.g. Smart City Platform for Riyadh Municipality" />
+    <label>Tender Details</label>
+    <textarea id="tender-text" placeholder="Paste full tender description here..."></textarea>
+    <button class="btn btn-primary" onclick="submitTender()">🚀 Start AI Analysis</button>
+    <button class="btn btn-gray" style="margin-left:8px" onclick="loadDemo()">📋 Load Demo Tender</button>
+    <div id="submit-result" class="result-box" style="display:none"></div>
+  </div>
+
+  <!-- STATUS -->
+  <div id="tab-status" class="panel">
+    <h2 style="margin-bottom:20px;color:#00467F">Pipeline Status</h2>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input id="status-tender-id" type="text" placeholder="Enter Tender ID (e.g. TF-20260625-A1B2)" style="margin-bottom:0" />
+      <button class="btn btn-primary" onclick="checkStatus()">Check</button>
+      <button class="btn btn-gray" onclick="autoRefresh()">🔄 Auto Refresh</button>
+    </div>
+    <div id="status-result"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div id="tab-result" class="panel">
+    <h2 style="margin-bottom:20px;color:#00467F">Pipeline Results</h2>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input id="result-tender-id" type="text" placeholder="Enter Tender ID" style="margin-bottom:0" />
+      <button class="btn btn-primary" onclick="getResult()">Get Result</button>
+    </div>
+    <div id="result-content"></div>
+  </div>
+
+  <!-- APPROVAL -->
+  <div id="tab-approval" class="panel">
+    <h2 style="margin-bottom:20px;color:#00467F">Proposal Approval</h2>
+    <label>Tender ID</label>
+    <input id="approval-tender-id" type="text" placeholder="TF-..." />
+    <label>Reviewer Name</label>
+    <input id="reviewer-name" type="text" placeholder="Operations Manager" />
+    <label>Decision</label>
+    <select id="approval-decision">
+      <option value="approved">✅ Approved — Proceed to proposal finalization</option>
+      <option value="rejected">❌ Rejected — Do not proceed</option>
+    </select>
+    <label>Comments</label>
+    <textarea id="approval-comments" placeholder="Optional comments..." style="min-height:80px"></textarea>
+    <button class="btn btn-success" onclick="submitApproval()">Submit Decision</button>
+    <div id="approval-result" class="result-box" style="display:none"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="tab-history" class="panel">
+    <h2 style="margin-bottom:20px;color:#00467F">Run History</h2>
+    <button class="btn btn-primary" onclick="loadHistory()" style="margin-bottom:16px">🔄 Refresh</button>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<div id="status-msg"></div>
+
+<script>
+const API = 'http://localhost:8000/api/v1';
+const API_KEY = 'tenderflow-phase4-secret-key'; // must match .env API_KEY
+let refreshInterval = null;
+
+function apiHeaders(extra = {}) {
+  return { 'X-API-Key': API_KEY, ...extra };
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'history') loadHistory();
+}
+
+function showMsg(text, type) {
+  const el = document.getElementById('status-msg');
+  el.textContent = text;
+  el.className = `msg-${type}`;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function loadDemo() {
+  document.getElementById('tender-title').value = 'Smart City Platform for Municipality of Riyadh';
+  document.getElementById('tender-text').value = `Tender: Smart City Platform for Municipality of Riyadh
+Client: Riyadh Municipality, Saudi Arabia
+Budget: 500,000 USD
+Submission deadline: 45 days from today
+Sector: IT / Smart City / GovTech
+Reference: RYD-2025-SC-099
+Required documents: company registration, ISO certification, 3 project references, financial statements, tax clearance, technical proposal, financial proposal
+Technical requirements: cloud-based platform, Arabic/English interface, IoT integration, real-time dashboard, mobile application`;
+}
+
+async function submitTender() {
+  const title = document.getElementById('tender-title').value;
+  const raw_text = document.getElementById('tender-text').value;
+  if (!title || !raw_text) return showMsg('Please fill in title and tender details', 'error');
+
+  showMsg('Submitting tender...', 'info');
+  const box = document.getElementById('submit-result');
+  box.style.display = 'block';
+  box.innerHTML = '⏳ Submitting and starting pipeline...';
+  try {
+    const res = await fetch(`${API}/tenders`, {
+      method: 'POST',
+      headers: apiHeaders({'Content-Type': 'application/json'}),
+      body: JSON.stringify({title, raw_text, source_type: 'manual_text'})
+    });
+    if (res.status === 401) {
+      box.innerHTML = '❌ Unauthorized — check API_KEY in dashboard matches .env';
+      return showMsg('Authentication failed', 'error');
+    }
+    if (!res.ok) {
+      const errText = await res.text();
+      box.innerHTML = `❌ Error ${res.status}: ${errText}`;
+      return showMsg(`Server error (${res.status})`, 'error');
+    }
+    const data = await res.json();
+    box.innerHTML = `✅ Tender created successfully!\n\nTender ID: ${data.tender_id}\nRun ID: ${data.pipeline_run_id}\nStatus: ${data.status}\n\n👉 Go to Pipeline Status tab and enter: ${data.tender_id}`;
+    document.getElementById('status-tender-id').value = data.tender_id;
+    document.getElementById('result-tender-id').value = data.tender_id;
+    document.getElementById('approval-tender-id').value = data.tender_id;
+    showMsg('Tender submitted! Pipeline starting...', 'success');
+  } catch(e) {
+    box.innerHTML = `❌ Network error: ${e.message}\n\nIs the backend running on localhost:8000?`;
+    showMsg('Cannot reach backend — is it running?', 'error');
+  }
+}
+
+function badgeHTML(status) {
+  return `<span class="badge badge-${status}">${status.toUpperCase()}</span>`;
+}
+
+async function checkStatus() {
+  const tid = document.getElementById('status-tender-id').value;
+  if (!tid) return showMsg('Enter a Tender ID', 'error');
+  try {
+    const res = await fetch(`${API}/pipeline/${tid}/status`, {headers: apiHeaders()});
+    const data = await res.json();
+    const agents = data.agents || {};
+    let agentHTML = '<div class="agent-grid">';
+    const labels = {intake:'1. Intake', ocr:'2. OCR', gonogo:'3. Go/No-Go',
+                    compliance:'4. Compliance', pricing:'5. Pricing',
+                    proposal:'6. Proposal', tracking:'7. Tracking'};
+    for (const [key, label] of Object.entries(labels)) {
+      const a = agents[key] || {status:'pending'};
+      agentHTML += `<div class="agent-card">
+        <div class="name">${label}</div>
+        ${badgeHTML(a.status)}
+        ${a.duration_seconds ? `<div style="font-size:11px;color:#718096;margin-top:4px">${a.duration_seconds}s</div>` : ''}
+        ${a.error ? `<div style="font-size:11px;color:#c53030;margin-top:4px">${a.error}</div>` : ''}
+      </div>`;
+    }
+    agentHTML += '</div>';
+
+    document.getElementById('status-result').innerHTML = `
+      <div class="info-row">
+        <div class="info-item"><div class="label">Status</div><div class="value">${badgeHTML(data.pipeline_status)}</div></div>
+        <div class="info-item"><div class="label">Current Agent</div><div class="value">${data.current_agent || '—'}</div></div>
+        <div class="info-item"><div class="label">Started</div><div class="value" style="font-size:12px">${data.started_at ? new Date(data.started_at).toLocaleTimeString() : '—'}</div></div>
+        <div class="info-item"><div class="label">Completed</div><div class="value" style="font-size:12px">${data.completed_at ? new Date(data.completed_at).toLocaleTimeString() : '—'}</div></div>
+      </div>
+      ${agentHTML}`;
+  } catch(e) {
+    document.getElementById('status-result').innerHTML = `<div style="color:red">Error: ${e.message}</div>`;
+  }
+}
+
+function autoRefresh() {
+  if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; showMsg('Auto-refresh stopped', 'info'); return; }
+  checkStatus();
+  refreshInterval = setInterval(checkStatus, 5000);
+  showMsg('Auto-refresh every 5s — click again to stop', 'info');
+}
+
+async function getResult() {
+  const tid = document.getElementById('result-tender-id').value;
+  if (!tid) return showMsg('Enter a Tender ID', 'error');
+  try {
+    const res = await fetch(`${API}/pipeline/${tid}/result`, {headers: apiHeaders()});
+    const data = await res.json();
+    const r = data.result || {};
+    let html = `
+      <div class="info-row">
+        <div class="info-item"><div class="label">Status</div><div class="value">${badgeHTML(data.pipeline_status)}</div></div>
+        <div class="info-item"><div class="label">Agents</div><div class="value">${data.agents_completed}/7</div></div>
+        <div class="info-item"><div class="label">Duration</div><div class="value">${Math.round(data.total_duration_seconds)}s</div></div>
+      </div>`;
+    const sections = [
+      ['agent_3_gonogo','🎯 Go/No-Go Decision'],
+      ['agent_4_compliance','✅ Compliance'],
+      ['agent_5_pricing','💰 Pricing'],
+      ['agent_6_proposal','📄 Proposal'],
+      ['agent_7_tracking','📅 Tracking'],
+    ];
+    for (const [key, label] of sections) {
+      if (r[key] && r[key].response) {
+        html += `<h3 style="margin:16px 0 8px;color:#00467F">${label}</h3>
+          <div class="result-box">${r[key].response}</div>`;
+      }
+    }
+    document.getElementById('result-content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('result-content').innerHTML = `<div style="color:red">No result yet or error: ${e.message}</div>`;
+  }
+}
+
+async function submitApproval() {
+  const tender_id = document.getElementById('approval-tender-id').value;
+  const reviewer_name = document.getElementById('reviewer-name').value;
+  const decision = document.getElementById('approval-decision').value;
+  const comments = document.getElementById('approval-comments').value;
+  if (!tender_id || !reviewer_name) return showMsg('Fill in Tender ID and Reviewer Name', 'error');
+  try {
+    const res = await fetch(`${API}/approvals/${tender_id}`, {
+      method: 'POST',
+      headers: apiHeaders({'Content-Type': 'application/json'}),
+      body: JSON.stringify({decision, reviewer_name, comments})
+    });
+    const data = await res.json();
+    const box = document.getElementById('approval-result');
+    box.style.display = 'block';
+    box.textContent = `Decision recorded:\nTender: ${data.tender_id}\nDecision: ${data.decision.toUpperCase()}\nReviewer: ${data.reviewer_name}\nDate: ${new Date(data.created_at).toLocaleString()}`;
+    showMsg(`Decision "${decision}" recorded successfully`, 'success');
+  } catch(e) { showMsg('Error: ' + e.message, 'error'); }
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch(`${API}/runs`, {headers: apiHeaders()});
+    const runs = await res.json();
+    if (!runs.length) { document.getElementById('history-list').innerHTML = '<p style="color:#718096">No runs yet.</p>'; return; }
+    let html = '';
+    for (const r of runs) {
+      html += `<div class="run-row">
+        <div class="run-title">${r.title || r.tender_id}</div>
+        <div>${badgeHTML(r.status)}</div>
+        <div style="font-size:11px;color:#718096">${r.agents_completed || 0}/7 agents</div>
+        <div style="font-size:11px;color:#718096">${r.started_at ? new Date(r.started_at).toLocaleString() : '—'}</div>
+        <button class="btn btn-gray" style="padding:4px 10px;font-size:11px"
+          onclick="document.getElementById('status-tender-id').value='${r.tender_id}';showTab('status');checkStatus()">View</button>
+      </div>`;
+    }
+    document.getElementById('history-list').innerHTML = html;
+  } catch(e) { document.getElementById('history-list').innerHTML = `<div style="color:red">Error: ${e.message}</div>`; }
+}
+</script>
+</body>
+</html>
